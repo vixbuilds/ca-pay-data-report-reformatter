@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>California Pay Data Report Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Lora:ital,wght@1,500&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#F7F6F3;--surface:#FFFFFF;--surface2:#F0EEE9;--border:#E5E2DA;--border2:#D4D0C8;
+  --text:#1A1917;--text2:#4A4845;--text3:#8A8780;
+  --accent:#1D4ED8;--accent-bg:#EFF6FF;--accent-border:#BFDBFE;
+  --amber:#D97706;--amber-bg:#FEF3C7;--amber-border:#FCD34D;
+  --red:#DC2626;--red-bg:#FEF2F2;--red-border:#FECACA;
+  --green:#16A34A;--green-bg:#F0FDF4;--green-border:#BBF7D0;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 2px 8px rgba(0,0,0,.04);
+  --shadow-lg:0 4px 16px rgba(0,0,0,.1),0 8px 32px rgba(0,0,0,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);font-family:'Sora',sans-serif;color:var(--text);min-height:100vh;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:var(--surface2)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+.mono{font-family:'IBM Plex Mono',monospace}
+
+/* Layout */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;gap:20px;box-shadow:var(--shadow)}
+.header-logo{display:flex;align-items:center;gap:10px;padding:16px 0;text-decoration:none}
+.header-logo span{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px}
+.header-logo .tag{font-family:'IBM Plex Mono',monospace;font-size:10px;background:var(--red-bg);color:var(--red);border:1px solid var(--red-border);border-radius:4px;padding:2px 7px;letter-spacing:.5px}
+.main-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 32px;background:var(--surface)}
+.main-tab{font-family:'Sora',sans-serif;font-size:13px;font-weight:500;padding:14px 20px;cursor:pointer;background:none;border:none;color:var(--text3);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.main-tab:hover{color:var(--text2)}
+.main-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.content{max-width:900px;margin:0 auto;padding:40px 32px}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;box-shadow:var(--shadow)}
+.card+.card{margin-top:20px}
+.section-title{font-size:13px;font-weight:600;color:var(--text3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:16px;font-family:'IBM Plex Mono',monospace}
+
+/* Buttons */
+.btn{font-family:'Sora',sans-serif;font-size:13px;font-weight:500;padding:9px 18px;border-radius:8px;cursor:pointer;transition:all .15s;border:1px solid transparent;display:inline-flex;align-items:center;gap:7px}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:#1e40af}
+.btn-secondary{background:var(--surface);color:var(--text2);border-color:var(--border2)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-green{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-green:hover{background:#15803d}
+.btn-lg{font-size:15px;padding:13px 28px;border-radius:10px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* Type selector */
+.type-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.type-card{border:2px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:all .2s;background:var(--surface)}
+.type-card:hover{border-color:var(--accent);background:var(--accent-bg)}
+.type-card.selected{border-color:var(--accent);background:var(--accent-bg)}
+.type-card h3{font-size:14px;font-weight:600;margin-bottom:6px}
+.type-card p{font-size:12px;color:var(--text3);line-height:1.5}
+
+/* Drop zone */
+.drop-zone{border:2px dashed var(--border2);border-radius:12px;padding:44px 24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface)}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-bg)}
+.drop-zone-icon{font-size:32px;margin-bottom:12px}
+.drop-zone-label{font-size:14px;font-weight:500;color:var(--text2)}
+.drop-zone-sub{font-size:12px;color:var(--text3);margin-top:4px}
+input[type=file]{display:none}
+
+/* Column mapping */
+.mapping-grid{display:flex;flex-direction:column;gap:10px}
+.mapping-row{display:grid;grid-template-columns:1fr 24px 1fr 80px;align-items:center;gap:12px;padding:12px 16px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)}
+.mapping-row.required-missing{background:var(--red-bg);border-color:var(--red-border)}
+.mapping-row.mapped{background:var(--green-bg);border-color:var(--green-border)}
+.col-name{font-size:13px;font-weight:500;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.col-arrow{color:var(--text3);font-size:16px;text-align:center}
+.col-select{font-family:'Sora',sans-serif;font-size:12px;padding:6px 10px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text);width:100%;cursor:pointer}
+.col-badge{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 8px;border-radius:20px;text-align:center}
+.badge-required{background:var(--red-bg);color:var(--red);border:1px solid var(--red-border)}
+.badge-optional{background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+.badge-mapped{background:var(--green-bg);color:var(--green);border:1px solid var(--green-border)}
+
+/* Validation */
+.validation-list{display:flex;flex-direction:column;gap:8px}
+.v-row{display:flex;align-items:flex-start;gap:10px;font-size:13px;padding:10px 14px;border-radius:8px}
+.v-ok{background:var(--green-bg);border:1px solid var(--green-border)}
+.v-warn{background:var(--amber-bg);border:1px solid var(--amber-border)}
+.v-err{background:var(--red-bg);border:1px solid var(--red-border)}
+.v-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+
+/* Download */
+.download-box{background:var(--green-bg);border:2px solid var(--green-border);border-radius:14px;padding:28px;text-align:center}
+
+/* Steps */
+.steps{display:flex;gap:0;margin-bottom:32px}
+.step{flex:1;display:flex;align-items:center;gap:8px}
+.step-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.step-active .step-num{background:var(--accent);color:#fff}
+.step-done .step-num{background:var(--green);color:#fff}
+.step-idle .step-num{background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+.step-label{font-size:12px;font-weight:500;color:var(--text3)}
+.step-active .step-label{color:var(--accent);font-weight:600}
+.step-done .step-label{color:var(--green)}
+.step-line{flex:1;height:1px;background:var(--border);margin:0 4px}
+
+/* Alert */
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;display:flex;gap:10px;align-items:flex-start;margin-bottom:16px}
+.alert-info{background:var(--accent-bg);border:1px solid var(--accent-border);color:var(--accent)}
+.alert-warn{background:var(--amber-bg);border:1px solid var(--amber-border);color:#92400e}
+.alert-err{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red)}
+
+/* ── FAQ ── */
+.faq-search{width:100%;font-family:'Sora',sans-serif;font-size:14px;padding:13px 18px;border:2px solid var(--border2);border-radius:10px;background:var(--surface);color:var(--text);outline:none;transition:border-color .15s;margin-bottom:18px}
+.faq-search:focus{border-color:var(--accent)}
+.faq-cats{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.faq-cat{font-family:'Sora',sans-serif;font-size:12px;font-weight:500;padding:6px 14px;border:1.5px solid var(--border2);border-radius:20px;cursor:pointer;background:var(--surface);color:var(--text2);transition:all .15s}
+.faq-cat:hover{border-color:var(--accent);color:var(--accent)}
+.faq-cat.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.faq-section{margin-bottom:28px}
+.faq-section-title{font-size:11px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:var(--text3);font-family:'IBM Plex Mono',monospace;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.faq-item{border:1px solid var(--border);border-radius:10px;margin-bottom:8px;overflow:hidden;transition:border-color .15s}
+.faq-item:hover{border-color:var(--border2)}
+.faq-item.open{border-color:var(--accent-border)}
+.faq-q{width:100%;text-align:left;font-family:'Sora',sans-serif;font-size:13.5px;font-weight:500;padding:14px 18px;background:var(--surface);border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;color:var(--text);line-height:1.5}
+.faq-item.open .faq-q{background:var(--accent-bg);color:var(--accent)}
+.faq-chevron{flex-shrink:0;font-size:11px;transition:transform .2s;color:var(--text3)}
+.faq-item.open .faq-chevron{transform:rotate(180deg);color:var(--accent)}
+.faq-a{display:none;padding:0 18px 16px;font-size:13.5px;line-height:1.7;color:var(--text2);background:var(--surface)}
+.faq-item.open .faq-a{display:block}
+.faq-a strong{color:var(--text)}
+.faq-a a{color:var(--accent);text-decoration:underline}
+.faq-a ul{margin:8px 0 8px 18px;display:flex;flex-direction:column;gap:4px}
+.faq-a .code-chip{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin:1px 2px}
+.faq-a .new-badge{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10px;background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border);border-radius:4px;padding:1px 6px;margin-left:4px}
+.faq-none{text-align:center;padding:40px 20px;color:var(--text3);font-size:14px}
+
+/* Footer */
+.footer{border-top:1px solid var(--border);padding:12px 32px;display:flex;justify-content:space-between;align-items:center;background:var(--surface);font-size:11px;color:var(--text3);font-family:'IBM Plex Mono',monospace}
+
+/* Field tooltips */
+.field-tip{position:relative;display:inline-flex;align-items:center;gap:5px}
+.tip-icon{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--border2);color:var(--text3);font-size:9px;font-weight:700;cursor:default;flex-shrink:0;font-family:'IBM Plex Mono',monospace;line-height:1;transition:background .15s,color .15s}
+.tip-icon:hover{background:var(--accent);color:#fff}
+.tip-bubble{display:none;position:absolute;left:0;top:calc(100% + 8px);z-index:99;background:var(--text);color:#fff;font-size:11.5px;font-family:'Sora',sans-serif;font-weight:400;line-height:1.55;padding:10px 13px;border-radius:8px;width:280px;box-shadow:var(--shadow-lg);pointer-events:none}
+.tip-bubble::before{content:'';position:absolute;top:-5px;left:6px;width:10px;height:10px;background:var(--text);transform:rotate(45deg);border-radius:2px}
+.field-tip:hover .tip-bubble{display:block}
+</style>
+</head>
+<body>
+
+<!-- Privacy Banner -->
+<div style="background:#EFF6FF;border-bottom:1px solid #BFDBFE;padding:9px 24px;display:flex;align-items:center;gap:10px;font-size:12px;color:#1E40AF;font-family:'IBM Plex Mono',monospace;line-height:1.5">
+  <span style="flex-shrink:0">🔒 DATA STAYS IN YOUR BROWSER</span>
+  <span style="color:#93C5FD">·</span>
+  <span style="font-family:'Sora',sans-serif;color:#1E40AF">Nothing in this tool is transmitted to any server. Your employee data is processed locally and cleared when you close the tab. <strong>Note:</strong> browser cache may temporarily retain file contents — use anonymous employee IDs and avoid uploading on shared or public computers.</span>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <a class="header-logo" href="#">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#1D4ED8"/>
+      <path d="M8 20V10l6-3 6 3v10M11 20v-5h6v5" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>
+    </svg>
+    <span>CA Pay Data Report Tool</span>
+    <span class="tag">2025 REPORTING YEAR</span>
+  </a>
+</div>
+
+<!-- Hero title -->
+<div id="heroTitle" style="text-align:center;padding:44px 24px 28px;background:var(--bg)">
+  <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:clamp(28px,5vw,42px);font-weight:700;color:var(--text);margin:0 0 14px;line-height:1.2">California Pay Data Report Formatter</h1>
+  <p style="font-size:15px;color:var(--text3);max-width:560px;margin:0 auto;line-height:1.65">Map any HRIS export to California&#39;s required CRD template in minutes. Runs entirely in your browser &mdash; no data is transmitted anywhere.</p>
+</div>
+
+<!-- Main nav tabs -->
+<div class="main-tabs">
+  <button class="main-tab active" onclick="switchTab('formatter')">📋 Report Formatter</button>
+  <button class="main-tab" onclick="switchTab('chatbot')">❓ FAQ</button>
+</div>
+
+<!-- ══════════════════════════════════ FORMATTER TAB ══════════════════════════════════ -->
+<div id="tab-formatter">
+<div class="content">
+
+  <!-- Steps -->
+  <div class="steps" id="stepsBar">
+    <div class="step step-active" id="step1"><div class="step-num">1</div><div class="step-label">Choose Report Type</div></div>
+    <div class="step-line"></div>
+    <div class="step step-idle" id="step2"><div class="step-num">2</div><div class="step-label">Upload Your Data</div></div>
+    <div class="step-line"></div>
+    <div class="step step-idle" id="step3"><div class="step-num">3</div><div class="step-label">Map Columns</div></div>
+    <div class="step-line"></div>
+    <div class="step step-idle" id="step4"><div class="step-num">4</div><div class="step-label">Validate & Download</div></div>
+  </div>
+
+  <!-- Step 1: Report type -->
+  <div id="screen-type" class="card">
+    <div class="section-title">What type of report are you filing?</div>
+    <div class="type-grid">
+      <div class="type-card selected" id="typePayroll" onclick="selectType('payroll')">
+        <h3>👤 Payroll Employee Report</h3>
+        <p>For your direct employees — people on your payroll for whom you withhold federal social security taxes. Required if you have 100+ payroll employees with at least 1 in California.</p>
+      </div>
+      <div class="type-card" id="typeContractor" onclick="selectType('contractor')">
+        <h3>🏢 Labor Contractor Employee Report</h3>
+        <p>For workers hired through a staffing agency or labor contractor. Required if you have 100+ labor contractor employees with at least 1 in California. Filed separately from payroll report.</p>
+      </div>
+    </div>
+    <div style="margin-top:20px;display:flex;justify-content:flex-end">
+      <button class="btn btn-primary btn-lg" onclick="goToStep2()">Next: Upload Data →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Upload -->
+  <div id="screen-upload" style="display:none">
+    <div class="card">
+      <div class="section-title">Upload your HR data file</div>
+      <div class="alert alert-info">
+        <span>ℹ</span>
+        <span>Upload any CSV export from your HRIS. Column names don't need to match CRD's format — you'll map them in the next step. Extra columns are ignored.</span>
+      </div>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()"
+           ondrop="handleDrop(event)" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')">
+        <div class="drop-zone-icon" id="dropIcon">📂</div>
+        <div class="drop-zone-label" id="dropLabel">Drop your CSV here or click to browse</div>
+        <div class="drop-zone-sub">CSV files only</div>
+      </div>
+      <input type="file" id="fileInput" accept=".csv" onchange="handleFile(this.files[0])"/>
+      <div id="fileError" style="display:none" class="alert alert-err" style="margin-top:12px"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goToStep1()">← Back</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Column mapping -->
+  <div id="screen-mapping" style="display:none">
+    <div class="card">
+      <div class="section-title">Map your columns to CRD's required fields</div>
+      <div class="alert alert-info">
+        <span>ℹ</span>
+        <span>We've made our best guess at each mapping. Review and correct any that look wrong. <strong>Required fields</strong> must be mapped to proceed.</span>
+      </div>
+      <div id="mappingGrid" class="mapping-grid"></div>
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goToStep2()">← Back</button>
+      <button class="btn btn-primary btn-lg" onclick="runValidation()">Validate & Generate Report →</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Validate + Download -->
+  <div id="screen-validate" style="display:none">
+    <div class="card">
+      <div class="section-title">Validation Results</div>
+      <div id="validationList" class="validation-list"></div>
+    </div>
+    <div id="downloadBox" style="display:none;margin-top:20px" class="download-box">
+      <div style="font-size:28px;margin-bottom:8px">✅</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:6px">Your report is ready</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:20px" id="downloadSummary"></div>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn-green btn-lg" onclick="downloadCSV('csv')">⬇ Download CSV</button>
+        <a href="https://pdr.calcivilrights.ca.gov/s/" target="_blank" class="btn btn-primary btn-lg">🔗 Go to CRD Portal</a>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:14px;font-family:'IBM Plex Mono',monospace">
+        Deadline: May 13, 2026 · Submit at pdr.calcivilrights.ca.gov
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;justify-content:space-between">
+      <button class="btn btn-secondary" onclick="goToStep3()">← Back to Mapping</button>
+      <button class="btn btn-secondary" onclick="resetAll()">Start Over</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════ FAQ TAB ══════════════════════════════════ -->
+<div id="tab-chatbot" style="display:none">
+<div class="content" style="max-width:860px">
+  <div style="margin-bottom:24px">
+    <div style="font-size:20px;font-weight:700;margin-bottom:4px">FAQ — California Pay Data Reporting 2025</div>
+    <div style="font-size:13px;color:var(--text3)">Sourced directly from CRD's official 2025 Handbook, User Guide, and FAQ. Not legal advice — for legal questions, consult an attorney.</div>
+  </div>
+  <input class="faq-search" id="faqSearch" placeholder="🔍  Search questions..." oninput="filterFAQ(this.value)"/>
+  <div class="faq-cats" id="faqCats">
+    <button class="faq-cat active" onclick="setCat(this,'all')">All</button>
+    <button class="faq-cat" onclick="setCat(this,'basics')">📋 Filing Basics</button>
+    <button class="faq-cat" onclick="setCat(this,'deadline')">📅 Deadlines &amp; Portal</button>
+    <button class="faq-cat" onclick="setCat(this,'establishment')">🏢 Establishments</button>
+    <button class="faq-cat" onclick="setCat(this,'employees')">👥 Employees &amp; Groups</button>
+    <button class="faq-cat" onclick="setCat(this,'codes')">📊 Pay Bands &amp; Codes</button>
+    <button class="faq-cat" onclick="setCat(this,'new2025')">🆕 New for 2025</button>
+    <button class="faq-cat" onclick="setCat(this,'penalties')">⚠️ Penalties &amp; Corrections</button>
+    <button class="faq-cat" onclick="setCat(this,'portal')">💻 Portal Help</button>
+  </div>
+  <div id="faqList"></div>
+  <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:24px;font-family:'IBM Plex Mono',monospace;padding-bottom:8px">
+    Based on CRD's official 2025 materials · Not legal advice · <a href="/cdn-cgi/l/email-protection#4333223a272237223126332c31372a2d240320222f202a352a2f312a242b37306d20226d242c35" style="color:var(--text3)"><span class="__cf_email__" data-cfemail="c0b0a1b9a4a1b4a1b2a5b0afb2b4a9aea780a3a1aca3a9b6a9acb2a9a7a8b4b3eea3a1eea7afb6">[email&#160;protected]</span></a>
+  </div>
+</div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <span>California Pay Data Reporting Tool · Reporting Year 2025 · Due May 13, 2026</span>
+  <span>Not affiliated with CRD · Not legal advice</span>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ══════════════════════════════════════════════════════════════════════
+// DATA — CRD Code Lists
+// ══════════════════════════════════════════════════════════════════════
+
+const JOB_CATS = {
+  1:'Executive or Senior Level Officials and Managers',
+  2:'First or Mid-Level Officials and Managers',
+  3:'Professionals',4:'Technicians',5:'Sales Workers',
+  6:'Administrative Support Workers',7:'Craft Workers',
+  8:'Operatives',9:'Laborers and Helpers',10:'Service Workers'
+};
+const RACE_SEX_CODES = {
+  'A10':'Hispanic/Latino - Male','A20':'Hispanic/Latino - Female','A30':'Hispanic/Latino - Non-Binary',
+  'B10':'White - Male','B20':'Black or African American - Male','B30':'Native Hawaiian or Pacific Islander - Male',
+  'B40':'Asian - Male','B50':'American Indian or Alaska Native - Male','B60':'Multiracial/Multiethnic - Male','B70':'Middle Eastern or North African - Male',
+  'C10':'White - Female','C20':'Black or African American - Female','C30':'Native Hawaiian or Pacific Islander - Female',
+  'C40':'Asian - Female','C50':'American Indian or Alaska Native - Female','C60':'Multiracial/Multiethnic - Female','C70':'Middle Eastern or North African - Female',
+  'D10':'White - Non-Binary','D20':'Black or African American - Non-Binary','D30':'Native Hawaiian or Pacific Islander - Non-Binary',
+  'D40':'Asian - Non-Binary','D50':'American Indian or Alaska Native - Non-Binary','D60':'Multiracial/Multiethnic - Non-Binary','D70':'Middle Eastern or North African - Non-Binary'
+};
+const PAY_BANDS = [
+  {code:1,label:'$19,239 and under',min:0,max:19239},
+  {code:2,label:'$19,240–$24,959',min:19240,max:24959},
+  {code:3,label:'$24,960–$32,239',min:24960,max:32239},
+  {code:4,label:'$32,240–$41,079',min:32240,max:41079},
+  {code:5,label:'$41,080–$53,039',min:41080,max:53039},
+  {code:6,label:'$53,040–$68,119',min:53040,max:68119},
+  {code:7,label:'$68,120–$87,359',min:68120,max:87359},
+  {code:8,label:'$87,360–$112,319',min:87360,max:112319},
+  {code:9,label:'$112,320–$144,559',min:112320,max:144559},
+  {code:10,label:'$144,560–$186,159',min:144560,max:186159},
+  {code:11,label:'$186,160–$239,199',min:186160,max:239199},
+  {code:12,label:'$239,200 and over',min:239200,max:Infinity}
+];
+const EXEMPTION_VALS = ['Exempt','Non-exempt'];
+const EMPLOYMENT_VALS = ['Full-time','Part-time','Intermittent'];
+
+// Required and optional fields per report type
+const FIELD_TIPS = {
+  'Establishment Name': 'The name of this work location. One office? Just use your company name. Multiple locations? Give each one a name you\'ll recognize (e.g. "HQ - San Jose" or "Warehouse - Fresno").',
+  'Address Line 1': 'The street address of this specific work location — not a home address, ever.',
+  'NAICS Code': 'A 6-digit government code that describes what your company does. It\'s the same one you use for EEO-1 reporting. If you don\'t know yours, look it up at census.gov/naics.',
+  'Major Activity': 'One or two sentences describing what this location actually does. Be specific — "software development for financial services clients" beats "technology company." (Max 500 characters.)',
+  'Total Number of California Payroll Employees at Establishment': 'Total number of California employees who work at this location — everyone, across all jobs and backgrounds combined. Think of this as the location\'s headcount.',
+  'Job Category': 'Which of these 10 job types best describes the role?\n1 · Executives & Senior Managers\n2 · Mid-Level Managers\n3 · Professionals (lawyers, engineers, accountants, etc.)\n4 · Technicians\n5 · Sales Workers\n6 · Office & Admin Support\n7 · Skilled Trades (electricians, carpenters, etc.)\n8 · Machine Operators & Assemblers\n9 · Laborers & Helpers\n10 · Service Workers (janitors, food service, security, etc.)',
+  'Race/Ethnicity/Sex': 'A 3-character code combining race/ethnicity and sex.\nFirst letter: A=Hispanic/Latino · B=Non-Hispanic Male · C=Non-Hispanic Female · D=Non-Hispanic Non-Binary\nLast two digits: 10=White · 20=Black/African American · 30=Pacific Islander · 40=Asian · 50=Native American · 60=Multiracial · 70=Middle Eastern/North African\nExamples: A10=Hispanic Male · C40=Asian Female · B20=Black Male · D10=White Non-Binary',
+  'Pay Band': 'Map your annual salary or compensation column here — dollar amounts are fine, we\'ll convert them to the required code automatically. Use the full-year W-2 amount, not an hourly rate.',
+  'Exemption Status': 'Is the employee entitled to overtime pay? Non-exempt = yes, they get overtime. Exempt = no, they\'re salaried and not covered by overtime rules. When in doubt, ask your payroll team.',
+  'Employment Type': 'How does this employee typically work?\nFull-time = standard full hours every week.\nPart-time = regularly works fewer hours than full-time.\nIntermittent = irregular schedule — some weeks a lot, some weeks nothing (think seasonal or on-call).',
+  'Total Number of California Employees in This Employee Group': 'How many California employees share all the same details on this row — same location, same job type, same background, same pay range. This is a subset of the location total above.',
+  'Number of California Employees That Do Not Work Remotely': 'How many of this group physically come into the office or work site every day.',
+  'Number of Remote California Employees Located Within California': 'How many work from home (or anywhere remote) but live inside California.',
+  'Number of Remote California Employees Located Outside of California': 'How many work remotely from outside California but are officially assigned to a California office. Enter 0 if this location is not in California.',
+};
+
+const PAYROLL_FIELDS = [
+  {key:'Establishment Name',req:true},
+  {key:'Address Line 1',req:true},
+  {key:'Address Line 2',req:false},
+  {key:'City',req:true},{key:'State',req:true},{key:'ZIP Code',req:true},
+  {key:'NAICS Code',req:true},{key:'Major Activity',req:true},
+  {key:'Total Number of California Payroll Employees at Establishment',req:true},
+  {key:'Was a California Pay Data Report Filed for This Establishment Last Year?',req:true},
+  {key:"Is This Establishment the Employer's Headquarters?",req:true},
+  {key:'Job Category',req:true},{key:'Race/Ethnicity/Sex',req:true},
+  {key:'Pay Band',req:true},{key:'Exemption Status',req:false},
+  {key:'Employment Type',req:false},
+  {key:'Total Number of California Employees in This Employee Group',req:true},
+  {key:'Total Annual Hours Worked',req:true},
+  {key:'Total Annual Weeks Worked',req:false},
+  {key:'Mean Hourly Rate',req:true},{key:'Median Hourly Rate',req:true},
+  {key:'Number of California Employees That Do Not Work Remotely',req:true},
+  {key:'Number of Remote California Employees Located Within California',req:true},
+  {key:'Number of Remote California Employees Located Outside of California',req:true},
+  {key:'Row-Level Clarifying Remarks',req:false}
+];
+const CONTRACTOR_FIELDS = [
+  {key:'Establishment Name',req:true},{key:'Address Line 1',req:true},
+  {key:'Address Line 2',req:false},{key:'City',req:true},
+  {key:'State',req:true},{key:'ZIP Code',req:true},
+  {key:'NAICS Code',req:true},{key:'Major Activity',req:true},
+  {key:'Total Number of California Labor Contractor Employees at Establishment',req:true},
+  {key:'Was a California Pay Data Report Filed for This Establishment Last Year?',req:true},
+  {key:"Is This Establishment the Employer's Headquarters?",req:true},
+  {key:'Labor Contractor Name',req:true},{key:'Labor Contractor FEIN',req:true},
+  {key:'Snapshot Period Start Date',req:true},{key:'Snapshot Period End Date',req:true},
+  {key:'Job Category',req:true},{key:'Race/Ethnicity/Sex',req:true},
+  {key:'Pay Band',req:true},{key:'Exemption Status',req:false},
+  {key:'Employment Type',req:false},
+  {key:'Total Number of California Employees in This Employee Group',req:true},
+  {key:'Total Annual Hours Worked',req:true},
+  {key:'Total Annual Weeks Worked',req:false},
+  {key:'Mean Hourly Rate',req:true},{key:'Median Hourly Rate',req:true},
+  {key:'Number of California Employees That Do Not Work Remotely',req:true},
+  {key:'Number of Remote California Employees Located Within California',req:true},
+  {key:'Number of Remote California Employees Located Outside of California',req:true},
+  {key:'Row-Level Clarifying Remarks',req:false}
+];
+
+// ══════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════
+let reportType = 'payroll';
+let uploadedRows = [];
+let uploadedHeaders = [];
+let columnMapping = {}; // targetField -> sourceColumn or ''
+let outputCSV = '';
+
+// ══════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════════════════════════════
+function switchTab(tab){
+  document.getElementById('tab-formatter').style.display = tab==='formatter' ? '' : 'none';
+  document.getElementById('tab-chatbot').style.display = tab==='chatbot' ? '' : 'none';
+  document.querySelectorAll('.main-tab').forEach((t,i)=>{
+    t.classList.toggle('active', (tab==='formatter'&&i===0)||(tab==='chatbot'&&i===1));
+  });
+  const hero = document.getElementById('heroTitle');
+  const screen1 = document.getElementById('screen-type');
+  if(hero) hero.style.display = (tab==='formatter' && screen1 && screen1.style.display!=='none') ? '' : 'none';
+  if(tab==='chatbot') buildFAQ(activeCat==='all' ? FAQ_DATA : FAQ_DATA.filter(x=>x.cat===activeCat));
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FORMATTER — STEP NAVIGATION
+// ══════════════════════════════════════════════════════════════════════
+function setStep(n){
+  ['screen-type','screen-upload','screen-mapping','screen-validate'].forEach((id,i)=>{
+    document.getElementById(id).style.display = (i+1===n) ? '' : 'none';
+  });
+  const hero = document.getElementById('heroTitle');
+  if(hero) hero.style.display = n===1 ? '' : 'none';
+  ['step1','step2','step3','step4'].forEach((id,i)=>{
+    const el = document.getElementById(id);
+    el.className = 'step ' + (i+1<n ? 'step-done' : i+1===n ? 'step-active' : 'step-idle');
+  });
+}
+function goToStep1(){setStep(1);}
+function goToStep2(){setStep(2);}
+function goToStep3(){buildMappingUI();setStep(3);}
+function resetAll(){
+  uploadedRows=[];uploadedHeaders=[];columnMapping={};outputCSV='';
+  document.getElementById('dropIcon').textContent='📂';
+  document.getElementById('dropLabel').textContent='Drop your CSV here or click to browse';
+  document.getElementById('dropZone').style.cssText='';
+  setStep(1);
+}
+
+function selectType(t){
+  reportType = t;
+  document.getElementById('typePayroll').classList.toggle('selected', t==='payroll');
+  document.getElementById('typeContractor').classList.toggle('selected', t==='contractor');
+}
+
+function goToStep2(){setStep(2);}
+
+// ══════════════════════════════════════════════════════════════════════
+// FILE HANDLING
+// ══════════════════════════════════════════════════════════════════════
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('dropZone').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+}
+function handleFile(file){
+  if(!file) return;
+  if(!file.name.endsWith('.csv')){
+    showFileError('Please upload a .csv file.'); return;
+  }
+  document.getElementById('fileError').style.display='none';
+  Papa.parse(file,{header:true,skipEmptyLines:true,complete:({data,meta})=>{
+    if(!data.length){showFileError('File appears to be empty.');return;}
+    uploadedRows = data;
+    uploadedHeaders = meta.fields;
+    document.getElementById('dropIcon').textContent='✅';
+    document.getElementById('dropLabel').textContent=file.name+' — '+data.length+' rows';
+    document.getElementById('dropZone').style.borderColor='var(--green)';
+    document.getElementById('dropZone').style.background='var(--green-bg)';
+    // Auto-proceed to mapping
+    setTimeout(()=>{ buildMappingUI(); setStep(3); }, 300);
+  },error:()=>showFileError('Could not parse file. Make sure it is a valid CSV.')});
+}
+function showFileError(msg){
+  const el = document.getElementById('fileError');
+  el.textContent = '⚠ '+msg;
+  el.style.display='flex';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FUZZY COLUMN MATCHING
+// ══════════════════════════════════════════════════════════════════════
+function normalize(s){return s.toLowerCase().replace(/[^a-z0-9]/g,'');}
+function fuzzyMatch(targetField, headers){
+  const t = normalize(targetField);
+  const aliases = {
+    'establishmentname':['establishment','company','employer','location','site','plant'],
+    'addressline1':['address','street','addr1','address1'],
+    'city':['city'],
+    'state':['state','st'],
+    'zipcode':['zip','zipcode','postalcode','postal'],
+    'naicscode':['naics','industrycode','sic'],
+    'majoractivity':['activity','businessactivity','industry','description'],
+    'jobcategory':['jobcat','eeocategory','eeocat','jobgroup','eeo1','jobtypecat','eeoclass'],
+    'raceethnicitysex':['race','ethnicity','raceethnicity','eeoraceethnicitycode','demographiccode'],
+    'payband':['payband','paygrade','salaryband','wageband'],
+    'totalannualhoursworked':['hoursworked','totalhours','annualhours','hours'],
+    'totalannualweeksworked':['weeksworked','weeks','annualweeks'],
+    'meanhourlyrate':['meanrate','avgrate','averagerate','meanhourly'],
+    'medianhourlyrate':['medianrate','medianhourly'],
+    'exemptionsstatus':['exempt','exemption','flsastatus','exemptiontype'],
+    'employmenttype':['emptype','employmenttype','fullpart','fullorparttime'],
+    'totalnumberofcaliforniaemployeesinthisemployeegroup':['count','employeecount','numemployees','headcount','groupcount','employeesingroup'],
+    'numberofcaliforniaemployeesthatdonotworkremotely':['onsite','notremote','inoffice','onsitecount'],
+    'numberofremotecaliforniaemployeeslocatedwithincalifornia':['remoteca','remotecaliforniia','remoteinca'],
+    'numberofremotecaliforniaemployeeslocatedoutsideofcalifornia':['remoteoutofstate','remoteoutsideca','remoteoutca'],
+    'rowlevelclarifyingremarks':['remarks','notes','comments','clarifications']
+  };
+  // Direct match
+  for(const h of headers){
+    if(normalize(h)===t) return h;
+  }
+  // Alias match
+  const key = t.replace(/[\*\?]/g,'').replace(/\s/g,'');
+  const alts = aliases[key] || [];
+  for(const h of headers){
+    const hn = normalize(h);
+    if(alts.some(a=>hn.includes(a))) return h;
+  }
+  // Partial match
+  for(const h of headers){
+    const hn = normalize(h);
+    if(hn.includes(t.substring(0,8)) || t.includes(hn.substring(0,8))) return h;
+  }
+  return '';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// MAPPING UI
+// ══════════════════════════════════════════════════════════════════════
+function buildMappingUI(){
+  const fields = reportType==='payroll' ? PAYROLL_FIELDS : CONTRACTOR_FIELDS;
+  // Build initial mapping
+  fields.forEach(f=>{
+    if(!columnMapping[f.key]) columnMapping[f.key] = fuzzyMatch(f.key, uploadedHeaders);
+  });
+  const grid = document.getElementById('mappingGrid');
+  const opts = ['(leave blank)', ...uploadedHeaders].map(h=>`<option value="${h}">${h||'(leave blank)'}</option>`).join('');
+  grid.innerHTML = fields.map(f=>{
+    const mapped = columnMapping[f.key];
+    const cls = mapped ? 'mapping-row mapped' : (f.req ? 'mapping-row required-missing' : 'mapping-row');
+    const badge = mapped ? '<span class="col-badge badge-mapped">mapped</span>' : (f.req ? '<span class="col-badge badge-required">required</span>' : '<span class="col-badge badge-optional">optional</span>');
+    const selOpts = uploadedHeaders.map(h=>`<option value="${h}" ${h===mapped?'selected':''}>${h}</option>`).join('');
+    const tip = FIELD_TIPS[f.key];
+    const tipHtml = tip
+      ? `<span class="field-tip"><span class="tip-icon">i</span><span class="tip-bubble">${tip.replace(/\n/g,'<br>')}</span></span>`
+      : '';
+    return `<div class="${cls}" id="mrow-${CSS.escape(f.key)}">
+      <div class="col-name"><span>${f.key}${f.req?'<span style="color:var(--red)"> *</span>':''}</span>${tipHtml}</div>
+      <div class="col-arrow">→</div>
+      <select class="col-select" onchange="updateMapping('${f.key.replace(/'/g,"\\'")}',this.value)">
+        <option value="">(leave blank)</option>
+        ${selOpts}
+      </select>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+function updateMapping(field, value){
+  columnMapping[field] = value;
+  const row = document.getElementById('mrow-'+CSS.escape(field));
+  if(!row) return;
+  const f = (reportType==='payroll'?PAYROLL_FIELDS:CONTRACTOR_FIELDS).find(x=>x.key===field);
+  const badge = row.querySelector('.col-badge');
+  if(value){
+    row.className='mapping-row mapped';
+    badge.className='col-badge badge-mapped';badge.textContent='mapped';
+  } else {
+    row.className = f&&f.req ? 'mapping-row required-missing' : 'mapping-row';
+    badge.className = f&&f.req ? 'col-badge badge-required' : 'col-badge badge-optional';
+    badge.textContent = f&&f.req ? 'required' : 'optional';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// VALIDATION + OUTPUT GENERATION
+// ══════════════════════════════════════════════════════════════════════
+function getPayBandCode(annualWage){
+  const w = parseFloat(String(annualWage).replace(/[$,]/g,''));
+  if(isNaN(w)) return '';
+  const b = PAY_BANDS.find(p=>w>=p.min&&w<=p.max);
+  return b ? String(b.code) : '';
+}
+function getJobCatCode(val){
+  if(!val) return '';
+  const v = String(val).trim();
+  if(/^[1-9]$|^10$/.test(v)) return v;
+  const lower = v.toLowerCase();
+  for(const [code,desc] of Object.entries(JOB_CATS)){
+    if(desc.toLowerCase().includes(lower.substring(0,8))||lower.includes(desc.toLowerCase().substring(0,8))) return code;
+  }
+  return v;
+}
+function getRaceCode(val){
+  if(!val) return '';
+  const v = String(val).trim().toUpperCase();
+  if(RACE_SEX_CODES[v]) return v;
+  return v;
+}
+function normalizeYesNo(val){
+  if(!val) return '';
+  const v = String(val).trim().toLowerCase();
+  if(['yes','y','true','1'].includes(v)) return 'Yes';
+  if(['no','n','false','0'].includes(v)) return 'No';
+  return val;
+}
+function normalizeExemption(val){
+  if(!val) return '';
+  const v = String(val).trim().toLowerCase();
+  if(v.includes('non')||v==='0'||v==='false') return 'Non-exempt';
+  if(v.includes('exempt')||v==='1'||v==='true') return 'Exempt';
+  return val;
+}
+function normalizeEmploymentType(val){
+  if(!val) return '';
+  const v = String(val).trim().toLowerCase();
+  // Only map values that unambiguously match CRD's accepted terms
+  if(v==='full-time'||v==='fulltime'||v==='full time'||v==='ft') return 'Full-time';
+  if(v.startsWith('full')) return 'Full-time';
+  if(v==='part-time'||v==='parttime'||v==='part time'||v==='pt') return 'Part-time';
+  if(v.startsWith('part')) return 'Part-time';
+  if(v==='intermittent'||v==='inter') return 'Intermittent';
+  // Do NOT auto-map "temp" or "seasonal" — they could be Full-time or Part-time.
+  // Return original and let validation flag it for manual review.
+  return val;
+}
+
+function runValidation(){
+  const fields = reportType==='payroll' ? PAYROLL_FIELDS : CONTRACTOR_FIELDS;
+  const errors = [], warnings = [], oks = [];
+  // Check required fields mapped
+  const requiredMissing = fields.filter(f=>f.req&&!columnMapping[f.key]);
+  if(requiredMissing.length){
+    requiredMissing.forEach(f=>errors.push('Required field not mapped: <strong>'+f.key+'</strong>'));
+  }
+  // Check data rows
+  if(uploadedRows.length===0) errors.push('No data rows found in file.');
+
+  // Check and track transformations
+  let badPayBand=0, autoPayBand=0, badJobCat=0, badRace=0, badExemption=0, badEmpType=0;
+  uploadedRows.forEach(row=>{
+    // Pay Band
+    const pbSrc = columnMapping['Pay Band'] ? row[columnMapping['Pay Band']] : '';
+    if(pbSrc){
+      if(/^[1-9]$|^10$|^11$|^12$/.test(String(pbSrc).trim())){
+        // already valid code — no conversion needed
+      } else {
+        const code = getPayBandCode(pbSrc);
+        if(code) autoPayBand++;
+        else badPayBand++;
+      }
+    }
+    // Job Category
+    const jcSrc = columnMapping['Job Category'] ? row[columnMapping['Job Category']] : '';
+    if(jcSrc&&!/^[1-9]$|^10$/.test(String(jcSrc).trim())) badJobCat++;
+    // Race/Ethnicity/Sex
+    const rcSrc = columnMapping['Race/Ethnicity/Sex'] ? row[columnMapping['Race/Ethnicity/Sex']] : '';
+    if(rcSrc&&!RACE_SEX_CODES[String(rcSrc).trim().toUpperCase()]) badRace++;
+    // Exemption Status
+    const exSrc = columnMapping['Exemption Status'] ? row[columnMapping['Exemption Status']] : '';
+    if(exSrc){
+      const norm = normalizeExemption(exSrc);
+      if(!EXEMPTION_VALS.includes(norm)) badExemption++;
+    }
+    // Employment Type
+    const etSrc = columnMapping['Employment Type'] ? row[columnMapping['Employment Type']] : '';
+    if(etSrc){
+      const norm = normalizeEmploymentType(etSrc);
+      if(!EMPLOYMENT_VALS.includes(norm)) badEmpType++;
+    }
+  });
+
+  if(autoPayBand>0) warnings.push(`<strong>${autoPayBand} rows:</strong> Annual salary values in <em>Pay Band</em> were auto-converted to CRD pay band codes (1–12). <strong>Verify these are W-2 Box 5 annual earnings before submitting.</strong>`);
+  if(badPayBand>0) warnings.push(`<strong>${badPayBand} rows:</strong> <em>Pay Band</em> values could not be converted to a valid CRD code (1–12). These will appear as-is in the output — <strong>correct them manually before uploading to the portal.</strong>`);
+  if(badJobCat>0) warnings.push(`<strong>${badJobCat} rows:</strong> <em>Job Category</em> values do not appear to be valid CRD codes (1–10). Text descriptions will be matched where possible, but <strong>verify all job category values after download.</strong>`);
+  if(badRace>0) warnings.push(`<strong>${badRace} rows:</strong> <em>Race/Ethnicity/Sex</em> values don't match CRD codes (A10–D70). Invalid values will pass through as-is — <strong>correct them manually before uploading to the portal.</strong>`);
+  if(badExemption>0) warnings.push(`<strong>${badExemption} rows:</strong> <em>Exemption Status</em> values could not be mapped to "Exempt" or "Non-exempt" and will appear as-is. <strong>Correct them manually before uploading.</strong>`);
+  if(badEmpType>0) warnings.push(`<strong>${badEmpType} rows:</strong> <em>Employment Type</em> values could not be mapped to "Full-time", "Part-time", or "Intermittent" and will appear as-is. <strong>Correct them manually — do not guess for "temp" or "seasonal" workers.</strong>`);
+
+  // New 2025 field warnings
+  if(!columnMapping['Exemption Status']) warnings.push('Exemption Status not mapped — column will be blank. This field is strongly encouraged for 2025 and required to match CRD expectations.');
+  if(!columnMapping['Employment Type']) warnings.push('Employment Type not mapped — column will be blank. This field is strongly encouraged for 2025 and required to match CRD expectations.');
+  if(!columnMapping['Total Annual Weeks Worked']) warnings.push('Total Annual Weeks Worked not mapped — column will be blank. This is a new field for 2025 and strongly encouraged.');
+
+  if(requiredMissing.length===0) oks.push('All required fields are mapped.');
+  if(uploadedRows.length>0) oks.push(uploadedRows.length+' data rows found.');
+  if(autoPayBand===0&&badPayBand===0&&columnMapping['Pay Band']) oks.push('Pay Band values are already valid CRD codes — no conversion needed.');
+
+  const list = document.getElementById('validationList');
+  list.innerHTML = [
+    ...errors.map(e=>`<div class="v-row v-err"><span class="v-icon">✖</span><span>${e}</span></div>`),
+    ...warnings.map(w=>`<div class="v-row v-warn"><span class="v-icon">⚠</span><span>${w}</span></div>`),
+    ...oks.map(o=>`<div class="v-row v-ok"><span class="v-icon">✓</span><span>${o}</span></div>`)
+  ].join('');
+
+  if(!errors.length){
+    generateOutput();
+    document.getElementById('downloadBox').style.display='block';
+    document.getElementById('downloadSummary').textContent =
+      uploadedRows.length+' rows formatted for '+
+      (reportType==='payroll'?'Payroll Employee Report':'Labor Contractor Employee Report')+
+      ' · Reporting Year 2025';
+  } else {
+    document.getElementById('downloadBox').style.display='none';
+  }
+  setStep(4);
+}
+
+function generateOutput(){
+  const fields = reportType==='payroll' ? PAYROLL_FIELDS : CONTRACTOR_FIELDS;
+  const headers = fields.map(f=>f.key+(f.req?'*':''));
+  const rows = uploadedRows.map(row=>{
+    return fields.map(f=>{
+      const src = columnMapping[f.key];
+      let val = src ? (row[src]||'') : '';
+      // Transform values
+      if(f.key==='Pay Band'){
+        if(!/^[1-9]$|^10$|^11$|^12$/.test(String(val).trim())){
+          val = getPayBandCode(val)||val;
+        }
+      }
+      if(f.key==='Job Category') val = getJobCatCode(val)||val;
+      if(f.key==='Race/Ethnicity/Sex') val = getRaceCode(val)||val;
+      if(f.key==='Was a California Pay Data Report Filed for This Establishment Last Year?') val=normalizeYesNo(val);
+      if(f.key==="Is This Establishment the Employer's Headquarters?") val=normalizeYesNo(val);
+      if(f.key==='Exemption Status') val=normalizeExemption(val);
+      if(f.key==='Employment Type') val=normalizeEmploymentType(val);
+      // Escape commas for CSV
+      if(String(val).includes(',')) val='"'+val+'"';
+      return val;
+    });
+  });
+  outputCSV = [headers.join(','), ...rows.map(r=>r.join(','))].join('\n');
+}
+
+function downloadCSV(){
+  if(!outputCSV) return;
+  const blob = new Blob([outputCSV],{type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url;
+  a.download=(reportType==='payroll'?'payroll_employee_report':'labor_contractor_employee_report')+'_2025.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CHATBOT
+// ══════════════════════════════════════════════════════════════════════
+const SYSTEM_PROMPT = `You are an assistant that answers questions EXCLUSIVELY about California Pay Data Reporting for Reporting Year 2025.
+
+══════════════════════════════════════════════════════
+CRITICAL OPERATING RULES — THESE OVERRIDE EVERYTHING ELSE
+══════════════════════════════════════════════════════
+1. You may ONLY use information explicitly stated in this system prompt to answer questions. Do NOT draw on general knowledge, training data, assumptions, or inferences beyond what is written here.
+2. If a user's question cannot be answered using information in this system prompt, you MUST respond with EXACTLY this sentence, and nothing else: "I could not find the answer to your question in the California Pay Data Reporting Handbook, FAQs, or User Guide."
+3. Never invent rules, deadlines, codes, dollar amounts, field names, penalties, or procedures not stated below.
+4. Never speculate about what the rules "probably" are. Never extrapolate.
+5. If a question is partly answerable and partly not, answer only the parts that are explicitly covered below, and state "I could not find the answer to [the remaining part] in the California Pay Data Reporting Handbook, FAQs, or User Guide."
+6. This is not legal advice. For any question about legal obligations, legal status, or whether a specific entity is covered, direct users to consult an attorney.
+══════════════════════════════════════════════════════
+
+=== DEADLINES & PORTAL ===
+- Filing deadline: May 13, 2026 (second Wednesday of May each year)
+- Portal opens: February 2, 2026
+- Portal URL: pdr.calcivilrights.ca.gov
+- CRD will NOT accept reports by email or hard copy
+- Support email: paydatareporting@calcivilrights.ca.gov
+- Resources page: calcivilrights.ca.gov/paydatareporting
+
+=== WHO MUST FILE ===
+- Every private employer with 100+ payroll employees (at least 1 in CA) must file a Payroll Employee Report
+- Every private client employer with 100+ labor contractor employees (at least 1 in CA) must file a Labor Contractor Employee Report
+- Both reports required if both thresholds met — filed SEPARATELY, never combined in one report
+- Employee count includes inside AND outside California, and employees on paid or unpaid leave
+- Threshold met if: (1) 100+ employees during snapshot period, OR (2) 100+ on a regular basis during the year
+- "Regular basis" = recurring need, even if not constant; seasonal employers who regularly have 100+ during a particular time of year are covered
+- Integrated enterprise rule: if affiliated entities collectively have 100+ employees (at least 1 in CA), ALL entities in the enterprise must file even if individually under 100
+- Integrated enterprise factors: (1) degree of interrelated operations (common offices, payroll, bank accounts, networks, domains, facilities); (2) common management; (3) centralized control of labor relations (hiring, firing, daily business procedures); (4) common ownership or financial control
+- Whether entities form an integrated enterprise is a LEGAL QUESTION — consult an attorney if uncertain
+
+=== LABOR CONTRACTOR OBLIGATIONS ===
+- Labor contractor must provide all necessary pay data to its client employers in a timely manner
+- Labor subcontractors are treated as separate labor contractors; each has an independent obligation to provide data to the client employer
+- If a labor contractor uses a subcontractor, the subcontractor must also provide data to the client employer
+- If the labor contractor itself has 100+ employees, it must also file its OWN pay data report for its own employees
+- Client employer bears SOLE obligation to comply with pay data reporting requirements even if using a PEO
+- A PEO must file its own separate report for its own employees — it cannot file a single combined report for itself and a client
+
+=== SNAPSHOT PERIOD ===
+- A single pay period chosen by the employer between October 1 and December 31, 2025
+- For payroll reports: snapshot period entered on the Submission Information page in the portal
+- For labor contractor reports: snapshot period entered at the establishment/employee detail level (per labor contractor); different labor contractors may use different snapshot periods
+- CRD encourages client employers with multiple labor contractors to use the same or overlapping snapshot periods
+
+=== WHAT IS AN ESTABLISHMENT ===
+- A single economic unit / single physical location where business is conducted (factory, mill, store, hotel, movie theater, mine, farm, airline terminal, sales office, warehouse, central administrative office)
+- Employee home addresses are NOT establishments and must NEVER be reported
+- Use same establishments as EEO-1 reporting
+- All CA establishments (and non-CA establishments to which CA employees are assigned) must be reported regardless of size
+- Government Code 12999 does not differentiate by establishment size
+- Headquarters is a distinct establishment, reported the same as others
+- If employee reports to multiple establishments, assign to where they spent the greatest portion of working hours
+- Employees may NOT be reassigned to different establishments to avoid reporting
+
+=== REMOTE EMPLOYEES — THREE NUMBERS REQUIRED ===
+For each employee group, report three counts:
+1. Number of employees who do NOT work remotely (physically at the establishment)
+2. Number working remotely WITHIN California (assigned to any establishment inside or outside CA)
+3. Number working remotely OUTSIDE California assigned to a California establishment (enter zero if establishment is not in CA)
+
+Where to assign remote employees:
+- Report under their assigned establishment
+- If not assigned to any establishment: report under their manager's establishment
+- If manager also has no establishment: report under employer's headquarters
+- If employer is entirely remote with no physical location: use address where business is legally registered
+- NEVER report an employee's home address as an establishment
+
+=== EMPLOYEE GROUPING ===
+Each row = one employee group sharing the same combination of:
+Establishment + Job Category + Race/Ethnicity/Sex + Pay Band + Exemption Status + Employment Type
+For each group report: total count, total annual hours worked, total annual weeks worked, mean hourly rate, median hourly rate, remote worker breakdown (3 numbers above)
+
+=== JOB CATEGORIES (codes 1–10, same as EEO-1 Component 1) ===
+1 = Executive or Senior Level Officials and Managers
+2 = First or Mid-Level Officials and Managers
+3 = Professionals
+4 = Technicians
+5 = Sales Workers
+6 = Administrative Support Workers
+7 = Craft Workers
+8 = Operatives
+9 = Laborers and Helpers
+10 = Service Workers
+- Use EEOC's EEO-1 Component 1 Job Classification Guide and California Pay Data Reporting Job Category Mapping Table as references
+- If employee worked multiple categories: assign to category for majority of work during snapshot period
+
+=== RACE/ETHNICITY CATEGORIES (Appendix B) ===
+Hispanic or Latino: Mexican, Puerto Rican, Salvadoran, Cuban, Dominican, Guatemalan, other Central/South American or Spanish culture — report regardless of any other race identification
+American Indian or Alaska Native: original peoples of North, Central, South America (e.g., Navajo Nation, Blackfeet, Aztec, Maya)
+Asian: original peoples of Central/East Asia, Southeast Asia, South Asia (e.g., Chinese, Asian Indian, Filipino, Vietnamese, Korean, Japanese)
+Black or African American: Black racial groups of Africa (e.g., African American, Jamaican, Haitian, Nigerian, Ethiopian, Somali)
+Middle Eastern or North African (MENA — NEW separate category for 2025 per 2024 OMB standards): original peoples of Middle East or North Africa (e.g., Lebanese, Iranian, Egyptian, Syrian, Iraqi, Israeli). Previously MENA was included in White; now separate.
+Native Hawaiian or Pacific Islander: original peoples of Hawaii, Guam, Samoa, other Pacific Islands (e.g., Native Hawaiian, Samoan, Chamorro, Tongan, Fijian, Marshallese)
+White: original peoples of Europe (e.g., English, German, Irish, Italian, Polish, Scottish)
+Multiracial and/or Multiethnic: identifies with MORE than one of the above races/ethnicities AND does not identify as Hispanic/Latino. NOTE: Hispanic/Latino + another race does NOT qualify as Multiracial — that person goes in Hispanic/Latino category.
+
+Assignment rules:
+- If employee identifies as Hispanic/Latino (regardless of any other race): assign to Hispanic/Latino
+- If employee identifies with exactly one non-Hispanic race: assign to that race
+- If employee identifies with 2+ non-Hispanic races: assign to Multiracial/Multiethnic
+- Self-identification preferred; if declines: use (1) employment records, (2) other reliable records, (3) observer perception (last resort)
+- If observer perception used: note in Clarifying Remarks field
+
+=== RACE/ETHNICITY/SEX CODES ===
+A=Hispanic/Latino: A10=Male, A20=Female, A30=Non-Binary
+B=Non-Hispanic Male: B10=White, B20=Black/AA, B30=NHPI, B40=Asian, B50=AIAN, B60=Multiracial, B70=MENA
+C=Non-Hispanic Female: C10=White, C20=Black/AA, C30=NHPI, C40=Asian, C50=AIAN, C60=Multiracial, C70=MENA
+D=Non-Hispanic Non-Binary: D10=White, D20=Black/AA, D30=NHPI, D40=Asian, D50=AIAN, D60=Multiracial, D70=MENA
+California officially recognizes three genders (Gender Recognition Act 2017): Male, Female, Non-Binary
+If employee declines to state sex: use employment records, reliable records, or self-identified pronouns
+
+=== PAY BANDS (codes 1–12, based on W-2 Box 5 for FULL calendar year) ===
+1=$19,239 and under | 2=$19,240–$24,959 | 3=$24,960–$32,239 | 4=$32,240–$41,079 | 5=$41,080–$53,039 | 6=$53,040–$68,119 | 7=$68,120–$87,359 | 8=$87,360–$112,319 | 9=$112,320–$144,559 | 10=$144,560–$186,159 | 11=$186,160–$239,199 | 12=$239,200 and over
+- Use W-2 Box 5 (Medicare Wages and Tips) for the FULL reporting year regardless of annualized wage rate
+- If wages not in Box 5: use Box 1 and note in Clarifying Remarks
+- Labor contractor employees working for multiple clients: allocate wages proportionally to each client employer
+
+=== EXEMPTION STATUS (new for 2025) ===
+"Exempt" = exempt from CA Industrial Welfare Commission wage orders and/or federal FLSA minimum wage/overtime
+"Non-exempt" = not exempt
+Field is OPTIONAL in the data file (column O payroll, column S labor contractor) but strongly encouraged
+
+=== EMPLOYMENT TYPE (new for 2025) ===
+"Full-time" = regularly works full-time hours under employer's standard or alternative workweek schedule
+"Part-time" = regularly works less than full-time hours
+"Intermittent" = periodically or irregularly works full-time or part-time hours
+Field is OPTIONAL in the data file (column P payroll, column T labor contractor) but strongly encouraged
+
+=== TOTAL ANNUAL WEEKS WORKED (new for 2025) ===
+- Number of weeks worked during the full reporting year, including weeks on paid time off
+- Aggregate for all employees in the same employee group
+- For labor contractor employees: weeks worked for the reporting client employer only
+- Field is OPTIONAL in the data file (column S payroll, column W labor contractor) but strongly encouraged
+
+=== HOURS WORKED ===
+Non-exempt employees: actual hours worked + hours on paid time off (use timesheets)
+Exempt WITH timesheets: actual hours + paid time off hours
+Exempt WITHOUT timesheets: (days worked + paid leave days) x average hours per day (may be a reasonable estimate)
+Mixed: can use actual hours for tracked exempt employees and proxy formula for untracked ones
+Aggregate hours across all employees in the same employee group
+For labor contractor employees: actual hours worked for the reporting client employer; allocate if worked for multiple clients
+Hours must be entered as positive whole numbers (e.g., 1214, NOT 1214.34)
+
+=== MEAN AND MEDIAN HOURLY RATES ===
+Individual hourly rate = W-2 Box 5 divided by total annual hours worked (per person)
+Mean = sum of all individual hourly rates divided by number of employees in group
+Median = order individual hourly rates smallest to largest:
+  - Odd number of employees: select the middle value
+  - Even number of employees: average the two middle values
+  - One employee: their hourly rate is both mean and median
+  - Two employees: median = mean of their two rates
+Round mean and median to TWO decimal places. Only positive numbers accepted.
+
+=== APPENDIX C — EXACT FIELD SPECS (PAYROLL EMPLOYEE REPORT) ===
+Col A: Establishment Name — Alphanumeric, max 100 chars, REQUIRED
+Col B: Address Line 1 — Alphanumeric, max 200 chars, REQUIRED
+Col C: Address Line 2 — Alphanumeric, max 200 chars, optional
+Col D: City — Alphabetic, max 50 chars, REQUIRED
+Col E: State — Alphabetic, 2 chars, REQUIRED. Use two-letter state abbreviations; use "OT" if not one of 50 states or DC
+Col F: ZIP Code — Numeric, 5 digits, REQUIRED
+Col G: NAICS Code — Numeric, 6 digits, REQUIRED. Use 2022 NAICS codes. Use census.gov/naics to look up.
+Col H: Major Activity — Alphanumeric, max 500 chars, REQUIRED. Include specific product/service and principal business activity.
+Col I: Total Number of CA Payroll Employees at Establishment — Numeric, max 10 digits, REQUIRED. Positive whole numbers only.
+Col J: Was a CA Pay Data Report Filed for This Establishment Last Year? — Alphabetic, 3 chars, REQUIRED. "Yes" or "No"
+Col K: Is This Establishment the Employer's Headquarters? — Alphabetic, 3 chars, REQUIRED. "Yes" or "No"
+Col L: Job Category — Numeric, 2 digits, REQUIRED. Codes 1–10.
+Col M: Race/Ethnicity/Sex — Alphanumeric, 3 chars, REQUIRED. Codes A10–D70.
+Col N: Pay Band — Numeric, 2 digits, REQUIRED. Codes 1–12.
+Col O: Exemption Status — Alphabetic, max 10 chars, optional. "Exempt" or "Non-exempt"
+Col P: Employment Type — Alphabetic, max 12 chars, optional. "Full-time", "Part-time", or "Intermittent"
+Col Q: Total Number of CA Employees in This Employee Group — Numeric, max 10 digits, REQUIRED. Positive whole numbers only.
+Col R: Total Annual Hours Worked — Numeric, max 10 digits, REQUIRED. Round to nearest positive whole number.
+Col S: Total Annual Weeks Worked — Numeric, max 10 digits, optional. Round to nearest positive whole number.
+Col T: Mean Hourly Rate — Numeric, max 10 digits, REQUIRED. Round to 2 decimal places. Positive numbers only.
+Col U: Median Hourly Rate — Numeric, max 10 digits, REQUIRED. Round to 2 decimal places. Positive numbers only.
+Col V: Number of CA Employees That Do Not Work Remotely — Numeric, max 10 digits, REQUIRED. Whole numbers only.
+Col W: Number of Remote CA Employees Located Within California — Numeric, max 10 digits, REQUIRED. Whole numbers only.
+Col X: Number of Remote CA Employees Located Outside of California (assigned to CA establishment) — Numeric, max 10 digits, REQUIRED. Whole numbers only. Enter zero if establishment is not in CA.
+Col Y: Row-Level Clarifying Remarks — Alphanumeric, max 2000 chars, optional.
+
+=== FAILURE TO FILE — PENALTIES ===
+- CRD may seek a court order requiring compliance if deadline is missed
+- Court may impose a civil monetary penalty of up to $100 per employee for first failure to file
+- Penalties increase to up to $200 per employee for any subsequent failure to file
+- CRD is entitled to recover costs associated with seeking compliance orders, including attorneys' fees
+- If a client employer cannot file a complete report because a labor contractor failed to provide data, the court may apportion penalties to the labor contractor
+
+=== CORRECTION OF REPORTS ===
+- If error found BEFORE the filing deadline: decertify the incorrect report and submit a corrected report
+- If error found WITHIN 7 calendar days AFTER the filing deadline: decertify the incorrect report and submit a corrected report; recommend noting corrections in clarifying remarks
+- If error found MORE THAN 7 calendar days after the filing deadline: contact CRD directly with a description of the error
+
+=== CONFIDENTIALITY ===
+- Individual pay data reports submitted to CRD are confidential
+- CRD officers and employees may not make public any individually identifiable information before the initiation of an investigation or enforcement proceeding
+- Individually identifiable information is not subject to disclosure under the California Public Records Act
+- CRD may publish aggregate reports provided they are designed to prevent association of data with any individual business or person
+- Any demographic information gathered for pay data reporting must be collected and stored separately from employee personnel records
+
+=== CERTIFICATION ===
+- An official employed by the employer must certify that the report is complete and accurate
+- The certifying official must: have knowledge of the information, have reviewed the report, and be authorized to file on behalf of the employer
+- Third parties (PEO, accountant, attorney) may PREPARE the report, but only an employer official may CERTIFY it
+- A certifying official may authorize another person to electronically file the certification on their behalf
+- Certifying official must provide: name, job title, address, phone number, and email address
+
+=== FILING STEPS (from User Guide) ===
+1. Access portal: pdr.calcivilrights.ca.gov
+2. Register (new user) or log in
+3. Start a new Submission → select Reporting Year 2025
+4. Choose report type: Payroll Employee Report or Labor Contractor Employee Report
+5. Enter Employer Information (name, FEIN, SEIN, NAICS, SOS number, EDD-registered address)
+6. Enter Submission Information (headquarters address if different; total employee counts; snapshot period)
+7. Upload Excel/CSV file OR manually enter establishment and employee detail
+8. Certify and Submit
+
+=== UPLOADING A FILE ===
+- Use ONLY 2025 templates — portal will reject outdated versions
+- Payroll and labor contractor reports have SEPARATE templates — never mix
+- Upload via "Import Data" on Establishment and Employee Detail page; importing deletes previously entered data
+- Portal shows upload > processing > importing status
+- After upload: download the error file to see which rows failed, download success file for inserted rows
+- Common upload errors: commas in CSV fields, invalid dropdown values for Job Category/Race/Pay Band/Exemption Status/Employment Type, hours not entered as positive whole numbers
+
+=== LINKING A NEW USER TO EXISTING EMPLOYER ACCOUNT ===
+- New user registers their own account
+- Select "Link to an existing employer account"
+- Enter employer FEIN + CA SEIN + previous report number or submission details
+- Multiple users can manage the same employer account
+
+=== PARENT COMPANIES / INTEGRATED ENTERPRISE ===
+- May file one combined report (parent listed as employer, affiliates in Affiliated Company section with FEIN/SEIN/SOS/address)
+- OR each entity files separately
+- Entities that do NOT form an integrated enterprise MUST each file separately
+- A covered affiliated entity NOT included in parent's report must file its own report and note it has a parent company
+
+=== KEY DEFINITIONS (Appendix A) ===
+- California employee: (1) assigned to a CA establishment, OR (2) physically located in CA on a routine/regular basis while performing any job duty (including remote work in CA for non-CA establishment)
+- Client employer: employer that uses workers supplied by one or more labor contractors in its usual course of business
+- Usual course of business: regular and customary work, performed on routine basis or with some regularity, requiring more than brief/de minimis time
+- Establishment: single economic unit / single physical location where workers are assigned to conduct business
+- Headquarters: establishment that is the primary center of direction, control, and coordination for the employer
+- Hours worked: actual hours worked PLUS hours on any form of paid time off for which employee was paid
+- Labor contractor: individual or entity that supplies workers to a client employer
+- Labor subcontractor: supplies workers to a labor contractor (for that contractor's client employer)
+- Reporting year: calendar year covered by the report (the year prior to when the report is due — so Reporting Year 2025 covers January 1–December 31, 2025, due in 2026)
+- Snapshot period: single pay period between October 1 and December 31 of the reporting year
+- Private employer: any non-government employer
+
+=== FUTURE CHANGES (not yet in effect for 2025) ===
+- Effective January 1, 2027: Reports will transition from 10 EEO-1 job categories to 23 Standard Occupational Classification (SOC) categories
+
+=== PORTAL DETAILS (from User Guide) ===
+- Importing a data file DELETES any previously entered establishment/employee detail — this prevents duplicate reporting
+- File import shows three status stages: Uploading → Processing → Importing (leave pop-up open until finished)
+- After upload: download the ERROR FILE (column "Impowr: error") to see which rows failed; download the SUCCESS FILE for successfully inserted rows
+- Common error examples: job category value like "Unknown" is invalid; exemption status like "Fired" is invalid; blank Race/Ethnicity/Sex cell
+- After fixing errors: re-upload the corrected file OR edit records directly in the portal
+- Portal only provides Excel downloads (not CSV) when downloading data from the portal
+- Management access is tied to the USER, not the employer — one user can manage multiple employers from one account
+- Snapshot period dates for LABOR CONTRACTOR reports are NOT entered on the Submission Information page — they are entered at the establishment/employee detail level (per labor contractor)
+- After certification: portal generates a graphical representation of pay data that can be downloaded as PDF
+- In-progress (uncertified) reports can be resumed: Home page > Resume a Submission > Edit Report
+- Discarding a report is available from the My Pay Data Reports page
+- To reset password: go to portal login page > select "Forgot Password" > enter username > check email for reset link
+
+=== RESOURCES ===
+- Handbook: calcivilrights.ca.gov/paydatareporting/handbook
+- User Guide: calcivilrights.ca.gov/paydatareporting/userguide
+- FAQ: calcivilrights.ca.gov/paydatareporting/faq
+- Excel templates: calcivilrights.ca.gov/paydatareporting/exceltemplates
+- CSV examples: calcivilrights.ca.gov/paydatareporting/csvexamples
+- Portal: pdr.calcivilrights.ca.gov
+- Support email: paydatareporting@calcivilrights.ca.gov
+
+This information is based on CRD's official 2025 materials and is for informational purposes only. It is not legal advice. For legal questions, consult an attorney.`
+
+let chatHistory = [];
+let isSending = false;
+window.anthropicApiKey = '';
+
+function handleApiKeyInput(val){
+  // Show a subtle indicator while typing
+  const status = document.getElementById('apiKeyStatus');
+  if(status) status.textContent = val.startsWith('sk-ant-') ? '✓ looks right' : val.length > 0 ? 'key should start with sk-ant-' : '';
+}
+
+function saveApiKey(){
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if(!val){ return; }
+  window.anthropicApiKey = val;
+  const box = document.getElementById('apiKeyBox');
+  const status = document.getElementById('apiKeyStatus');
+  if(box) box.style.background='var(--green-bg)', box.style.borderColor='var(--green-border)';
+  if(status) status.textContent = '✓ saved — key stays in memory only, never leaves your browser';
+  // Mask the input
+  document.getElementById('apiKeyInput').value = val.substring(0,12)+'••••••••••••••••••••';
+  document.getElementById('apiKeyInput').disabled = true;
+  // Add a reset link
+  const resetBtn = document.createElement('button');
+  resetBtn.className='btn btn-secondary';
+  resetBtn.style.cssText='font-size:11px;padding:5px 10px';
+  resetBtn.textContent='Change key';
+  resetBtn.onclick = ()=>{
+    window.anthropicApiKey='';
+    document.getElementById('apiKeyInput').value='';
+    document.getElementById('apiKeyInput').disabled=false;
+    box.style.background='var(--amber-bg)';
+    box.style.borderColor='var(--amber-border)';
+    if(status) status.textContent='';
+    resetBtn.remove();
+  };
+  box.appendChild(resetBtn);
+}
+
+function addMessage(role, text){
+  const wrap = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + (role==='user' ? 'msg-user' : 'msg-bot');
+  const avatar = role==='user'
+    ? '<div class="msg-avatar">👤</div>'
+    : '<div class="msg-avatar">📋</div>';
+  div.innerHTML = avatar + '<div class="msg-bubble">' + (role==='user' ? text : formatChatText(text)) + '</div>';
+  wrap.appendChild(div);
+  wrap.scrollTop = wrap.scrollHeight;
+  return div;
+}
+
+
+function formatChatText(text){
+  return text
+    .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>')
+    .replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank">$1</a>');
+}
+
+function addTyping(){
+  const wrap = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className='msg msg-bot';div.id='typingIndicator';
+  div.innerHTML='<div class="msg-avatar">📋</div><div class="msg-bubble"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>';
+  wrap.appendChild(div);
+  wrap.scrollTop=wrap.scrollHeight;
+}
+
+async function sendMessage(){
+  if(isSending) return;
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text) return;
+
+  const key = (window.anthropicApiKey||'').trim();
+  if(!key){
+    addMessage('assistant','Please enter your Anthropic API key above to use the chatbot.');
+    return;
+  }
+
+  input.value='';input.style.height='auto';
+  isSending=true;
+  document.getElementById('sendBtn').disabled=true;
+  addMessage('user',text);
+  chatHistory.push({role:'user',content:text});
+  addTyping();
+  try{
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:SYSTEM_PROMPT,
+        messages:chatHistory
+      })
+    });
+    const data = await resp.json();
+    document.getElementById('typingIndicator')?.remove();
+    if(!resp.ok){
+      const errMsg = data?.error?.message || `API error ${resp.status}`;
+      if(resp.status===401){
+        addMessage('assistant','Your API key was rejected. Double-check it and click "Change key" above to re-enter it.');
+      } else {
+        addMessage('assistant',`Something went wrong (${errMsg}). Please try again or email <a href="mailto:paydatareporting@calcivilrights.ca.gov">paydatareporting@calcivilrights.ca.gov</a> for support.`);
+      }
+      isSending=false;
+      document.getElementById('sendBtn').disabled=false;
+      return;
+    }
+    const reply = data.content?.map(c=>c.text||'').join('') || 'Sorry, I had trouble getting a response. Please try again.';
+    chatHistory.push({role:'assistant',content:reply});
+    addMessage('assistant',reply);
+  }catch(e){
+    document.getElementById('typingIndicator')?.remove();
+    addMessage('assistant','Sorry, something went wrong. Please try again or email <a href="mailto:paydatareporting@calcivilrights.ca.gov">paydatareporting@calcivilrights.ca.gov</a> for direct support.');
+  }
+  isSending=false;
+  document.getElementById('sendBtn').disabled=false;
+}
+
+// chatbot removed — see FAQ tab
+
+// ══════════════════════════════════════════════════════════════════
+// FAQ
+// ══════════════════════════════════════════════════════════════════
+const FAQ_DATA = [
+  // ── FILING BASICS ────────────────────────────────────────────
+  {cat:'basics', q:'Who has to file a California Pay Data Report?',
+   a:`Two types of employers must file:<ul>
+<li><strong>Payroll Employee Report:</strong> Every private employer with 100+ payroll employees, at least 1 of whom is a California employee.</li>
+<li><strong>Labor Contractor Employee Report:</strong> Every private client employer with 100+ labor contractor employees (temp/staffing workers), at least 1 of whom is a California employee.</li>
+</ul>
+If you hit both thresholds, you file <strong>both reports separately</strong> — you cannot combine them.<br><br>
+The 100-employee count includes employees inside <em>and</em> outside California, and employees on paid or unpaid leave.`,
+   tags:['who must file','covered employer','100 employees','threshold','requirement','payroll employee report','labor contractor employee report','filing requirement']},
+
+  {cat:'basics', q:'Do I count employees outside California toward the 100-employee threshold?',
+   a:`Yes. The threshold is based on your <strong>total</strong> employee count — not just California employees. An employer with 95 employees in Texas and 5 in California has 100 employees and must file.<br><br>
+The count includes everyone employed during the snapshot period, including those on paid or unpaid leave.`,
+   tags:['employee count','threshold','100 employees','outside california','total employees','headcount']},
+
+  {cat:'basics', q:'We\'re under 100 employees — do we still have to file?',
+   a:`Possibly, if you're part of an <strong>integrated enterprise</strong>. If your company is affiliated with other entities (common ownership, shared management, centralized HR) and the combined headcount hits 100+, all entities in the enterprise must file — even ones individually under 100.<br><br>
+Whether your entities form an integrated enterprise is a <strong>legal question</strong>. Consult an attorney if you're uncertain.`,
+   tags:['integrated enterprise','affiliated entities','under 100','small employer','affiliation','interrelated operations','common ownership']},
+
+  {cat:'basics', q:'Do I need to file two separate reports?',
+   a:`Only if you have both 100+ payroll employees <em>and</em> 100+ labor contractor employees (staffing/temp workers), with at least one California employee in each category.<br><br>
+If so, you file a <strong>Payroll Employee Report</strong> AND a <strong>Labor Contractor Employee Report</strong> — separately. Never combined in one file.`,
+   tags:['two reports','separate reports','both reports','payroll and labor contractor','staffing']},
+
+  {cat:'basics', q:'We use a PEO (Professional Employer Organization). Who files?',
+   a:`<strong>You do.</strong> The client employer bears sole obligation to comply with pay data reporting, even when using a PEO. The PEO can prepare the report on your behalf, but only an official <em>employed by your company</em> can certify and file it.<br><br>
+The PEO must also file its own separate pay data report for its own employees — it cannot combine itself and clients into one report.`,
+   tags:['peo','professional employer organization','third party','co-employment','hro']},
+
+  {cat:'basics', q:'We use staffing agencies. Do I report those workers?',
+   a:`If you have 100+ workers supplied by staffing agencies (labor contractors) and at least one is a California employee, yes — you file a <strong>Labor Contractor Employee Report</strong>.<br><br>
+The staffing agency is required to provide you all the pay data you need (wages, hours, demographics) to complete the report. Each staffing agency is treated as a separate labor contractor.`,
+   tags:['staffing agency','temp workers','labor contractor','contingent workers']},
+
+  // ── DEADLINES & PORTAL ───────────────────────────────────────
+  {cat:'deadline', q:'What is the 2025 filing deadline?',
+   a:`<strong>Wednesday, May 13, 2026.</strong><br><br>
+This covers Reporting Year 2025 (January 1 – December 31, 2025). The deadline is always the second Wednesday of May each year.<br><br>
+The portal opens <strong>February 2, 2026</strong> at <a href="https://pdr.calcivilrights.ca.gov" target="_blank">pdr.calcivilrights.ca.gov</a>.`,
+   tags:['deadline','may 13','may 2026','when to file','due date','filing date','second wednesday']},
+
+  {cat:'deadline', q:'Can I submit by email or mail?',
+   a:`No. CRD only accepts reports submitted and certified through the online portal at <a href="https://pdr.calcivilrights.ca.gov" target="_blank">pdr.calcivilrights.ca.gov</a>. Reports submitted by email or hard copy will not be accepted.`,
+   tags:['how to file','email','hard copy','portal','submission method']},
+
+  {cat:'deadline', q:'How do I create an account and file?',
+   a:`<ol style="margin:8px 0 8px 18px;display:flex;flex-direction:column;gap:6px">
+<li>Go to <a href="https://pdr.calcivilrights.ca.gov" target="_blank">pdr.calcivilrights.ca.gov</a> and click <strong>Register</strong></li>
+<li>Log in and click <strong>Start a New Submission</strong> → select Reporting Year 2025</li>
+<li>Choose report type: Payroll Employee Report or Labor Contractor Employee Report</li>
+<li>Enter Employer Information (legal name, FEIN, SEIN, NAICS code, SOS number, EDD address)</li>
+<li>Enter Submission Information (snapshot period, total employee counts, headquarters address)</li>
+<li>Upload your CSV/Excel data file OR enter data manually</li>
+<li>Certify and Submit</li>
+</ol>`,
+   tags:['how to file','register','login','portal steps','new user','submit','file online','filing steps']},
+
+  {cat:'deadline', q:'A new person is filing this year. How do they access our existing account?',
+   a:`The new user registers their own account, then selects <strong>"Link to an existing employer account."</strong> They'll need the employer's FEIN, California SEIN, and the report number or submission details from a previously filed report.<br><br>
+Multiple users can manage the same employer account. Access is tied to the user, not the employer.`,
+   tags:['account access','link account','multiple users','new filer','existing account','sein','fein']},
+
+  // ── ESTABLISHMENTS ────────────────────────────────────────────
+  {cat:'establishment', q:'What counts as an "establishment"?',
+   a:`An establishment is a <strong>single physical location</strong> where business is conducted — a factory, office, store, warehouse, restaurant, clinic, etc.<br><br>
+Key rules:<ul>
+<li>Employee home addresses are <strong>never</strong> establishments and must never be reported</li>
+<li>All California establishments must be reported, regardless of size</li>
+<li>The headquarters is its own establishment, reported the same as others</li>
+<li>Use the same establishments you report for EEO-1</li>
+</ul>`,
+   tags:['establishment','single location','physical location','workplace','office','factory','warehouse','store','eeo-1','home address','naics']},
+
+  {cat:'establishment', q:'We only have one office. What do I put for Establishment Name?',
+   a:`Your company name works fine. The establishment name is most important for employers with multiple locations — it helps distinguish them. For a single-location employer, the company name is the establishment name.`,
+   tags:['single establishment','one office','one location','company name']},
+
+  {cat:'establishment', q:'An employee works across multiple offices. Which establishment do I report them under?',
+   a:`Report them under the establishment where they spent <strong>the greatest portion of their working hours</strong> during the snapshot period.<br><br>
+You cannot reassign employees to different establishments to avoid reporting pay data.`,
+   tags:['multiple establishments','assign employee','greatest portion','hours','which establishment']},
+
+  // ── EMPLOYEES & GROUPS ────────────────────────────────────────
+  {cat:'employees', q:'What is a "snapshot period" and how do I choose one?',
+   a:`The snapshot period is a <strong>single pay period of your choice</strong> between October 1 and December 31, 2025. It determines which employees you report on.<br><br>
+You pick whichever pay period works best for your payroll schedule. For the Payroll Employee Report, you enter the snapshot period dates on the Submission Information page. For Labor Contractor Reports, the snapshot period is entered at the establishment level (and can vary by contractor).`,
+   tags:['snapshot','pay period','october','december','q4','which employees','reporting period','snapshot period']},
+
+  {cat:'employees', q:'What is an "employee group" and why does each row represent one?',
+   a:`An employee group is all California employees at one establishment who share the same combination of:<ul>
+<li>Job Category (1–10)</li>
+<li>Race/Ethnicity/Sex code (e.g., B40 = Asian Male)</li>
+<li>Pay Band (1–12)</li>
+<li>Exemption Status (Exempt / Non-exempt)</li>
+<li>Employment Type (Full-time / Part-time / Intermittent)</li>
+</ul>
+Each unique combination gets its own row. One row reports the <em>count</em> of employees in that group, their total hours, total weeks, mean hourly rate, and median hourly rate.`,
+   tags:['employee group','grouping','row','combination','race ethnicity sex','job category','pay band','exemption','employment type']},
+
+  {cat:'employees', q:'What\'s the difference between the two employee count fields?',
+   a:`There are two separate headcount fields:<ul>
+<li><strong>Total Number of CA Payroll Employees at Establishment (Col I):</strong> The full headcount for the entire location — everyone there, across all jobs and demographics. One number per establishment block.</li>
+<li><strong>Total Number of CA Employees in This Employee Group (Col Q):</strong> The count for <em>just this row's</em> demographic/job/pay combination. All the Col Q values for one establishment should add up to that establishment's Col I total.</li>
+</ul>`,
+   tags:['col i','col q','column i','column q','establishment total','group count','headcount','two counts','employee count fields']},
+
+  {cat:'employees', q:'How do I report remote employees?',
+   a:`For each employee group, you report <strong>three separate numbers</strong>:<ol style="margin:8px 0 8px 18px;display:flex;flex-direction:column;gap:4px">
+<li>Employees who physically come into the work location (not remote)</li>
+<li>Employees working remotely from <em>inside</em> California</li>
+<li>Employees working remotely from <em>outside</em> California, assigned to a California establishment (enter 0 if the establishment is not in CA)</li>
+</ol>
+<strong>Where to assign remote workers:</strong> Report them under their assigned establishment. If no assigned establishment → their manager's establishment. If manager also has none → employer's headquarters. If fully remote with no offices → address where the business is legally registered.`,
+   tags:['remote','telework','work from home','wfh','three numbers','outside california','within california','not remote','assigned establishment']},
+
+  {cat:'employees', q:'Do I report only California employees, or all employees?',
+   a:`<strong>Both, but for different purposes:</strong><ul>
+<li><strong>For determining if you must file:</strong> Count ALL employees (California and non-California) to see if you hit 100.</li>
+<li><strong>For the actual pay data in the report:</strong> Only report California employees — those assigned to a CA establishment, OR physically located in CA on a routine basis (including remote workers in CA for a non-CA establishment).</li>
+</ul>`,
+   tags:['california employee','non-california','which employees','who to report','definition california employee']},
+
+  // ── PAY BANDS & CODES ─────────────────────────────────────────
+  {cat:'codes', q:'How do pay bands work? What number do I use?',
+   a:`Pay bands use the employee's <strong>W-2 Box 5 (Medicare Wages and Tips) for the full calendar year</strong> — not their salary rate, not annualized, not hourly. Use the actual amount on their W-2.<br><br>
+The 12 pay bands:<ul>
+<li><span class="code-chip">1</span> $19,239 and under</li>
+<li><span class="code-chip">2</span> $19,240 – $24,959</li>
+<li><span class="code-chip">3</span> $24,960 – $32,239</li>
+<li><span class="code-chip">4</span> $32,240 – $41,079</li>
+<li><span class="code-chip">5</span> $41,080 – $53,039</li>
+<li><span class="code-chip">6</span> $53,040 – $68,119</li>
+<li><span class="code-chip">7</span> $68,120 – $87,359</li>
+<li><span class="code-chip">8</span> $87,360 – $112,319</li>
+<li><span class="code-chip">9</span> $112,320 – $144,559</li>
+<li><span class="code-chip">10</span> $144,560 – $186,159</li>
+<li><span class="code-chip">11</span> $186,160 – $239,199</li>
+<li><span class="code-chip">12</span> $239,200 and over</li>
+</ul>
+If wages aren't in Box 5, use Box 1 and note it in the Clarifying Remarks field.`,
+   tags:['pay band','pay bands','w-2','box 5','annual earnings','salary','compensation','codes 1-12','wage','band code','w2']},
+
+  {cat:'codes', q:'What are the 10 job categories and how do I assign employees?',
+   a:`The same 10 categories used in EEO-1 Component 1:<ul>
+<li><span class="code-chip">1</span> Executive or Senior Level Officials and Managers</li>
+<li><span class="code-chip">2</span> First or Mid-Level Officials and Managers</li>
+<li><span class="code-chip">3</span> Professionals (lawyers, engineers, accountants, nurses, etc.)</li>
+<li><span class="code-chip">4</span> Technicians</li>
+<li><span class="code-chip">5</span> Sales Workers</li>
+<li><span class="code-chip">6</span> Administrative Support Workers</li>
+<li><span class="code-chip">7</span> Craft Workers (skilled trades)</li>
+<li><span class="code-chip">8</span> Operatives (machine operators, assemblers)</li>
+<li><span class="code-chip">9</span> Laborers and Helpers</li>
+<li><span class="code-chip">10</span> Service Workers (janitors, food service, security, etc.)</li>
+</ul>
+If an employee worked multiple categories during the year, assign them to the category for the <strong>majority of their work during the snapshot period</strong>.`,
+   tags:['job category','job categories','eeo-1','occupation','job code','classify','exec','manager','professional','technician','sales','admin','craft','operative','laborer','service worker','naics']},
+
+  {cat:'codes', q:'How do the Race/Ethnicity/Sex codes work?',
+   a:`Each code is 3 characters combining ethnicity/sex:<br><br>
+<strong>First character (A/B/C/D):</strong><ul>
+<li><span class="code-chip">A</span> Hispanic or Latino (any sex)</li>
+<li><span class="code-chip">B</span> Non-Hispanic — Male</li>
+<li><span class="code-chip">C</span> Non-Hispanic — Female</li>
+<li><span class="code-chip">D</span> Non-Hispanic — Non-Binary</li>
+</ul>
+<strong>Last two digits (race, for B/C/D only):</strong><ul>
+<li><span class="code-chip">10</span> White &nbsp;<span class="code-chip">20</span> Black/African American &nbsp;<span class="code-chip">30</span> Pacific Islander</li>
+<li><span class="code-chip">40</span> Asian &nbsp;<span class="code-chip">50</span> Native American &nbsp;<span class="code-chip">60</span> Multiracial &nbsp;<span class="code-chip">70</span> Middle Eastern/North African</li>
+</ul>
+<strong>Examples:</strong> A10 = Hispanic Male · C40 = Asian Female · B20 = Black Male · D10 = White Non-Binary<br><br>
+<strong>Rule:</strong> If an employee identifies as Hispanic/Latino (regardless of other races), they go in category A. Self-identification is preferred; if an employee declines, use employment records or other reliable records.`,
+   tags:['race','ethnicity','sex','demographic codes','a10','b10','c10','d10','hispanic','white','black','asian','pacific islander','native american','multiracial','mena','non-binary','male','female','coding','appendix b']},
+
+  {cat:'codes', q:'How do I calculate Mean and Median Hourly Rates?',
+   a:`For each employee: <strong>hourly rate = W-2 Box 5 ÷ total hours worked during the year</strong><br><br>
+For the employee group:<ul>
+<li><strong>Mean:</strong> Add up all individual hourly rates, divide by the number of employees in the group</li>
+<li><strong>Median:</strong> Sort hourly rates smallest to largest — pick the middle value (odd count) or average the two middle values (even count)</li>
+</ul>
+Round both to <strong>two decimal places</strong>. Only positive numbers accepted.`,
+   tags:['mean','median','hourly rate','average','calculation','how to calculate','rate calculation']},
+
+  {cat:'codes', q:'How do I calculate Total Annual Hours Worked?',
+   a:`<strong>Hours worked = actual hours worked + hours on any paid time off</strong> (vacation, sick, holiday).<br><br>
+<ul>
+<li><strong>Non-exempt employees:</strong> Use timesheets — actual hours + paid leave hours</li>
+<li><strong>Exempt with timesheets:</strong> Same — actual hours + paid leave hours</li>
+<li><strong>Exempt without timesheets:</strong> (Days worked + paid leave days) × average hours per day. The average can be a reasonable estimate.</li>
+</ul>
+Aggregate the total across all employees in the same employee group. Enter as a positive whole number (e.g., 1214 not 1214.34).`,
+   tags:['hours worked','total hours','annual hours','timesheet','exempt hours','non-exempt hours','paid time off','pto','sick time','vacation','how to calculate hours']},
+
+  // ── NEW FOR 2025 ──────────────────────────────────────────────
+  {cat:'new2025', q:'What\'s new for Reporting Year 2025?',
+   a:`Three new fields were added for 2025 — all optional in the data file but <strong>strongly encouraged</strong>:<ul>
+<li><strong>Exemption Status</strong> <span class="new-badge">NEW</span> — "Exempt" or "Non-exempt" from overtime/minimum wage rules</li>
+<li><strong>Employment Type</strong> <span class="new-badge">NEW</span> — "Full-time," "Part-time," or "Intermittent"</li>
+<li><strong>Total Annual Weeks Worked</strong> <span class="new-badge">NEW</span> — Aggregate weeks worked by the group during the full year, including paid leave weeks</li>
+</ul>
+Also new: <strong>Middle Eastern or North African (MENA)</strong> is now its own race/ethnicity category (codes B70, C70, D70), separate from White. Previously, MENA individuals were included in the White category.`,
+   tags:['new fields','new for 2025','2025 changes','mena','exemption status','employment type','weeks worked','new requirements','what changed']},
+
+  {cat:'new2025', q:'What does Exemption Status mean?',
+   a:`Whether the employee is exempt from <strong>minimum wage and overtime</strong> rules under California's Industrial Welfare Commission (IWC) wage orders and/or the federal Fair Labor Standards Act (FLSA).<ul>
+<li><strong>Exempt</strong> = salaried/exempt employee, not entitled to overtime pay</li>
+<li><strong>Non-exempt</strong> = hourly or non-exempt employee, entitled to overtime pay</li>
+</ul>
+When in doubt, ask your payroll team — they track this for payroll tax purposes.`,
+   tags:['exemption','exempt','non-exempt','overtime','minimum wage','flsa','iwc','wage orders','salaried']},
+
+  {cat:'new2025', q:'What does Employment Type mean?',
+   a:`How the employee regularly works:<ul>
+<li><strong>Full-time</strong> = regularly works full hours under your standard or alternative workweek schedule</li>
+<li><strong>Part-time</strong> = regularly works <em>less than</em> full hours</li>
+<li><strong>Intermittent</strong> = periodically or irregularly works full or part-time hours (on-call, truly seasonal with irregular schedule)</li>
+</ul>
+Note: "Temp" workers who work regular full-time hours are <strong>Full-time</strong>, not Intermittent. Intermittent means genuinely irregular hours.`,
+   tags:['employment type','full-time','part-time','intermittent','on-call','irregular','seasonal','temp']},
+
+  {cat:'new2025', q:'What is Middle Eastern or North African (MENA) and why is it new?',
+   a:`MENA is a new standalone race/ethnicity category for 2025, reflecting updated 2024 OMB standards. It covers people with origins in the Middle East or North Africa — including Lebanese, Iranian, Egyptian, Syrian, Iraqi, Israeli, Moroccan, and others.<br><br>
+In prior years, MENA individuals were included in the <strong>White</strong> category. Starting with Reporting Year 2025, they should be coded separately:<ul>
+<li><span class="code-chip">B70</span> MENA Male &nbsp;<span class="code-chip">C70</span> MENA Female &nbsp;<span class="code-chip">D70</span> MENA Non-Binary</li>
+</ul>`,
+   tags:['mena','middle eastern','north african','b70','c70','d70','new category','white category','omb','race category']},
+
+  // ── PENALTIES & CORRECTIONS ───────────────────────────────────
+  {cat:'penalties', q:'What happens if we miss the deadline?',
+   a:`CRD can seek a court order requiring you to file. If a court gets involved:<ul>
+<li><strong>First failure to file:</strong> Up to <strong>$100 per employee</strong> in civil penalties</li>
+<li><strong>Subsequent failures:</strong> Up to <strong>$200 per employee</strong></li>
+<li>Plus CRD's attorneys' fees and costs of the compliance order</li>
+</ul>
+If you couldn't file because a staffing agency failed to provide required data, the court may shift some penalties to the agency.`,
+   tags:['penalty','penalties','fine','failure to file','late','miss deadline','100 per employee','200 per employee','court order','compliance']},
+
+  {cat:'penalties', q:'We filed and found an error. How do we fix it?',
+   a:`Depends on timing:<ul>
+<li><strong>Before the May 13 deadline:</strong> Decertify the report in the portal and resubmit a corrected version.</li>
+<li><strong>Within 7 calendar days after the deadline:</strong> Same — decertify and resubmit. Note what you corrected in the Clarifying Remarks field.</li>
+<li><strong>More than 7 days after the deadline:</strong> Contact CRD directly at <a href="mailto:paydatareporting@calcivilrights.ca.gov">paydatareporting@calcivilrights.ca.gov</a> with a description of the error.</li>
+</ul>`,
+   tags:['correction','correct report','error','decertify','resubmit','7 days','amend','fix mistake','wrong data']},
+
+  {cat:'penalties', q:'Is our pay data confidential?',
+   a:`Yes. Individual pay data reports are confidential under Government Code section 12999. CRD cannot make individually identifiable information public, and reports are not subject to the California Public Records Act.<br><br>
+CRD <em>can</em> publish aggregated annual reports, but only if they're designed to prevent identifying any specific company or individual.<br><br>
+Also required: any demographic data collected for pay data reporting must be <strong>stored separately from employee personnel records</strong>.`,
+   tags:['confidential','privacy','public records act','california public records','gov code 12999','individually identifiable','disclosure','data privacy','confidentiality']},
+
+  // ── PORTAL HELP ───────────────────────────────────────────────
+  {cat:'portal', q:'My file upload is failing. What are the most common errors?',
+   a:`The most common upload errors:<ul>
+<li><strong>Commas in data fields</strong> — Remove all commas from cell values in CSV files before uploading</li>
+<li><strong>Invalid dropdown values</strong> — Job Category, Race/Ethnicity/Sex, Pay Band, Exemption Status, and Employment Type must exactly match accepted values (e.g., "Unknown" for Job Category will fail)</li>
+<li><strong>Hours not whole numbers</strong> — Enter 1214, not 1214.34</li>
+<li><strong>Wrong template</strong> — Portal rejects files from prior-year templates. Use only the 2025 version.</li>
+<li><strong>Mixing report types</strong> — Payroll and labor contractor templates are different. Never mix them.</li>
+</ul>
+After upload, download the <strong>error file</strong> to see exactly which rows failed and why.`,
+   tags:['upload error','csv error','upload fail','template error','invalid value','import error','common errors','commas','whole numbers','wrong template']},
+
+  {cat:'portal', q:'I uploaded a file and now my previously entered data is gone.',
+   a:`That's expected behavior. Importing a data file <strong>deletes all previously entered establishment and employee detail</strong> to prevent duplicate entries. The portal processes one upload at a time.<br><br>
+Leave the upload pop-up open until all three status stages complete: Uploading → Processing → Importing.`,
+   tags:['import','upload replaces','data deleted','re-upload','upload overwrites','importing status']},
+
+  {cat:'portal', q:'Who can certify and submit the report?',
+   a:`Only an <strong>official employed by the employer</strong> can certify — not a PEO, accountant, attorney, or staffing agency.<br><br>
+The certifying official must have reviewed the report, have knowledge of its contents, and be authorized to file on behalf of the employer. They must provide their name, job title, address, phone, and email.<br><br>
+A certifying official can authorize another person to <em>electronically file</em> the certification on their behalf — but the certifying official is still responsible for its accuracy.`,
+   tags:['certify','certification','certifying official','who can certify','authorize','third party certify']},
+
+  {cat:'portal', q:'How do I reset my portal password?',
+   a:`<ol style="margin:8px 0 8px 18px;display:flex;flex-direction:column;gap:4px">
+<li>Go to <a href="https://pdr.calcivilrights.ca.gov" target="_blank">pdr.calcivilrights.ca.gov</a></li>
+<li>Click <strong>Forgot Password</strong></li>
+<li>Enter your username and click <strong>Reset Password</strong></li>
+<li>Check your email and follow the reset link</li>
+</ol>`,
+   tags:['password','forgot password','reset password','login help','account access']},
+
+  {cat:'portal', q:'Where can I get the official templates and resources?',
+   a:`All official CRD resources for 2025:<ul>
+<li><a href="https://calcivilrights.ca.gov/paydatareporting/handbook" target="_blank">Handbook</a></li>
+<li><a href="https://calcivilrights.ca.gov/paydatareporting/userguide" target="_blank">User Guide</a></li>
+<li><a href="https://calcivilrights.ca.gov/paydatareporting/faq" target="_blank">Official FAQ</a></li>
+<li><a href="https://calcivilrights.ca.gov/paydatareporting/exceltemplates" target="_blank">Excel Templates</a></li>
+<li><a href="https://calcivilrights.ca.gov/paydatareporting/csvexamples" target="_blank">CSV Examples</a></li>
+<li><a href="https://pdr.calcivilrights.ca.gov" target="_blank">Filing Portal</a></li>
+</ul>
+Questions? Email <a href="mailto:paydatareporting@calcivilrights.ca.gov">paydatareporting@calcivilrights.ca.gov</a>`,
+   tags:['templates','resources','excel template','csv example','handbook','user guide','faq','official materials','download template']},
+];
+
+let activeCat = 'all';
+
+function buildFAQ(items){
+  const list = document.getElementById('faqList');
+  if(!items.length){
+    list.innerHTML = '<div class="faq-none">No questions match your search. Try different keywords.</div>';
+    return;
+  }
+  // Group by category label
+  const catLabels = {basics:'📋 Filing Basics',deadline:'📅 Deadlines & Portal',establishment:'🏢 Establishments',employees:'👥 Employees & Groups',codes:'📊 Pay Bands & Codes',new2025:'🆕 New for 2025',penalties:'⚠️ Penalties & Corrections',portal:'💻 Portal Help'};
+  const groups = {};
+  items.forEach(item=>{
+    if(!groups[item.cat]) groups[item.cat]=[];
+    groups[item.cat].push(item);
+  });
+  list.innerHTML = Object.entries(groups).map(([cat, qs])=>`
+    <div class="faq-section">
+      <div class="faq-section-title">${catLabels[cat]||cat}</div>
+      ${qs.map((item,i)=>`
+        <div class="faq-item" id="faq-${cat}-${i}">
+          <button class="faq-q" onclick="toggleFAQ('faq-${cat}-${i}')">
+            <span>${item.q}</span>
+            <span class="faq-chevron">▼</span>
+          </button>
+          <div class="faq-a">${item.a}</div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function toggleFAQ(id){
+  const el = document.getElementById(id);
+  const wasOpen = el.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.faq-item.open').forEach(x=>x.classList.remove('open'));
+  if(!wasOpen) el.classList.add('open');
+}
+
+const CAT_LABELS_FLAT = {basics:'filing basics',deadline:'deadlines portal',establishment:'establishments',employees:'employees groups',codes:'pay bands codes',new2025:'new 2025',penalties:'penalties corrections',portal:'portal help'};
+
+function filterFAQ(query){
+  const q = query.trim().toLowerCase();
+  let items = activeCat==='all' ? FAQ_DATA : FAQ_DATA.filter(x=>x.cat===activeCat);
+  if(q) items = items.filter(x=>
+    x.q.toLowerCase().includes(q) ||
+    x.a.toLowerCase().includes(q) ||
+    (x.tags||[]).some(t=>t.includes(q)) ||
+    (CAT_LABELS_FLAT[x.cat]||'').includes(q)
+  );
+  buildFAQ(items);
+}
+
+function setCat(btn, cat){
+  activeCat = cat;
+  document.querySelectorAll('.faq-cat').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('faqSearch').value='';
+  filterFAQ('');
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', ()=>{});
+</script>
+</body>
+</html>
